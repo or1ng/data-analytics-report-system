@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数据分析报告体系设计方案</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<style>
+  :root {
+    --teal: #00897B;
+    --teal-light: #4DB6AC;
+    --teal-dark: #00695C;
+    --teal-pale: #E0F2F1;
+    --orange: #FF7043;
+    --blue: #1976D2;
+    --purple: #7B1FA2;
+    --gold: #F9A825;
+    --gray: #546E7A;
+    --bg: #F5F7F9;
+    --white: #FFFFFF;
+    --text: #263238;
+    --text-light: #607D8B;
+    --border: #CFD8DC;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    --shadow-hover: 0 6px 24px rgba(0,0,0,0.14);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'PingFang SC', 'Microsoft YaHei', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+
+  /* ── 顶部横幅 ── */
+  .hero {
+    background: linear-gradient(135deg, var(--teal-dark) 0%, var(--teal) 50%, var(--teal-light) 100%);
+    color: white;
+    padding: 56px 40px 48px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -80px; right: -80px;
+    width: 320px; height: 320px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: -60px; left: -60px;
+    width: 240px; height: 240px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.04);
+  }
+  .hero-inner { max-width: 1100px; margin: 0 auto; position: relative; z-index: 1; }
+  .hero-tag {
+    display: inline-block;
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 20px;
+    padding: 4px 16px;
+    font-size: 13px;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+  }
+  .hero h1 { font-size: 34px; font-weight: 700; margin-bottom: 12px; }
+  .hero p { font-size: 16px; opacity: 0.85; max-width: 600px; }
+  .hero-meta {
+    margin-top: 24px;
+    display: flex; gap: 24px; flex-wrap: wrap;
+  }
+  .hero-meta span {
+    font-size: 13px;
+    opacity: 0.75;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  /* ── 导航标签 ── */
+  .nav-tabs {
+    background: white;
+    border-bottom: 2px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .nav-inner {
+    max-width: 1100px; margin: 0 auto;
+    display: flex; overflow-x: auto;
+  }
+  .nav-tab {
+    padding: 14px 22px;
+    font-size: 14px; font-weight: 500;
+    color: var(--text-light);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+    transition: all 0.2s;
+    user-select: none;
+  }
+  .nav-tab:hover { color: var(--teal); }
+  .nav-tab.active { color: var(--teal); border-bottom-color: var(--teal); }
+
+  /* ── 主内容 ── */
+  .main { max-width: 1100px; margin: 0 auto; padding: 32px 20px; }
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* ── 通用卡片 ── */
+  .card {
+    background: white;
+    border-radius: 12px;
+    padding: 28px;
+    box-shadow: var(--shadow);
+    margin-bottom: 24px;
+  }
+  .card-title {
+    font-size: 18px; font-weight: 700;
+    color: var(--text);
+    margin-bottom: 8px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .card-title .icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: var(--teal-pale);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .card-sub {
+    font-size: 13px; color: var(--text-light);
+    margin-bottom: 20px;
+  }
+
+  /* ── 标题行 ── */
+  .section-header {
+    margin-bottom: 28px;
+  }
+  .section-header h2 {
+    font-size: 24px; font-weight: 700;
+    color: var(--text);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-header h2::before {
+    content: '';
+    display: block;
+    width: 4px; height: 24px;
+    background: var(--teal);
+    border-radius: 2px;
+  }
+  .section-header p {
+    margin-top: 8px;
+    color: var(--text-light);
+    font-size: 14px;
+  }
+
+  /* ── 报告层级卡片网格 ── */
+  .tier-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
+  .tier-card {
+    border-radius: 12px;
+    padding: 24px;
+    border-top: 4px solid;
+    box-shadow: var(--shadow);
+    background: white;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .tier-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-hover); }
+  .tier-card .tier-label {
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .tier-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .tier-card .tier-meta { font-size: 12px; color: var(--text-light); margin-bottom: 14px; }
+  .tier-card ul { padding-left: 18px; }
+  .tier-card ul li { font-size: 13px; margin-bottom: 4px; }
+
+  .tier-strategic { border-top-color: #7B1FA2; }
+  .tier-strategic .tier-label { color: #7B1FA2; }
+  .tier-tactical   { border-top-color: #1976D2; }
+  .tier-tactical   .tier-label { color: #1976D2; }
+  .tier-operational{ border-top-color: var(--teal); }
+  .tier-operational .tier-label { color: var(--teal); }
+  .tier-adhoc      { border-top-color: var(--orange); }
+  .tier-adhoc      .tier-label { color: var(--orange); }
+
+  /* ── 报告类型矩阵 ── */
+  .type-matrix { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media(max-width:720px){ .type-matrix { grid-template-columns: 1fr 1fr; } }
+  .type-card {
+    border-radius: 10px;
+    padding: 18px;
+    background: white;
+    box-shadow: var(--shadow);
+    border-left: 4px solid;
+    transition: transform 0.2s;
+  }
+  .type-card:hover { transform: translateX(4px); }
+  .type-card .tc-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .type-card .tc-icon { font-size: 20px; }
+  .type-card .tc-name { font-size: 15px; font-weight: 700; }
+  .type-card .tc-badge {
+    margin-left: auto;
+    font-size: 11px;
+    background: var(--teal-pale);
+    color: var(--teal-dark);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+  .type-card p { font-size: 13px; color: var(--text-light); margin-bottom: 8px; }
+  .type-card .tc-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .type-card .tc-tag {
+    font-size: 11px;
+    background: #ECEFF1;
+    color: var(--gray);
+    padding: 2px 8px;
+    border-radius: 8px;
+  }
+
+  /* ── 模板结构 ── */
+  .template-wrapper { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media(max-width:720px){ .template-wrapper { grid-template-columns: 1fr; } }
+  .template-box {
+    background: white;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .template-header {
+    padding: 16px 20px;
+    font-size: 15px; font-weight: 700;
+    display: flex; align-items: center; gap: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .template-body { padding: 20px; }
+  .tpl-step {
+    display: flex; gap: 12px; margin-bottom: 14px;
+  }
+  .tpl-num {
+    flex-shrink: 0;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: white;
+    background: var(--teal);
+  }
+  .tpl-content h4 { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+  .tpl-content p  { font-size: 12px; color: var(--text-light); }
+  .tpl-content ul { padding-left: 16px; font-size: 12px; color: var(--text-light); }
+
+  /* ── KPI树状 ── */
+  .kpi-domain {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+    margin-bottom: 20px;
+  }
+  .kpi-domain-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+  }
+  .kpi-domain-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+  .kpi-domain h3 { font-size: 17px; font-weight: 700; }
+  .kpi-domain .kpi-sub { font-size: 12px; color: var(--text-light); }
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .kpi-item {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    transition: border-color 0.2s;
+  }
+  .kpi-item:hover { border-color: var(--teal-light); }
+  .kpi-item .kpi-name { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .kpi-item .kpi-desc { font-size: 11px; color: var(--text-light); margin-bottom: 6px; }
+  .kpi-item .kpi-level {
+    display: inline-block;
+    font-size: 10px; font-weight: 700;
+    padding: 1px 8px;
+    border-radius: 6px;
+  }
+  .kpi-l1 { background: #EDE7F6; color: #6A1B9A; }
+  .kpi-l2 { background: #E3F2FD; color: #1565C0; }
+  .kpi-l3 { background: #E0F2F1; color: var(--teal-dark); }
+
+  /* ── 质量检查 ── */
+  .quality-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+  .quality-card {
+    background: white;
+    border-radius: 12px;
+    padding: 22px;
+    box-shadow: var(--shadow);
+  }
+  .quality-card h4 { font-size: 15px; font-weight: 700; margin-bottom: 14px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .checklist-item {
+    display: flex; align-items: flex-start; gap: 8px;
+    margin-bottom: 10px;
+    font-size: 13px;
+  }
+  .checklist-item .check-icon {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--teal);
+    color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; flex-shrink: 0; margin-top: 2px;
+  }
+  .checklist-item.warn .check-icon { background: var(--orange); }
+  .checklist-item.info .check-icon { background: var(--blue); }
+
+  /* ── 工作流时间线 ── */
+  .workflow-timeline { position: relative; }
+  .workflow-timeline::before {
+    content: '';
+    position: absolute;
+    left: 24px; top: 0; bottom: 0;
+    width: 2px;
+    background: var(--teal-pale);
+  }
+  .wf-step {
+    display: flex; gap: 20px;
+    margin-bottom: 24px;
+    position: relative;
+  }
+  .wf-dot {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    background: var(--teal);
+    color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+    z-index: 1;
+    box-shadow: 0 0 0 4px var(--teal-pale);
+  }
+  .wf-content { padding-top: 8px; }
+  .wf-content h4 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .wf-content p  { font-size: 13px; color: var(--text-light); }
+  .wf-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .wf-tag {
+    font-size: 11px;
+    background: var(--teal-pale);
+    color: var(--teal-dark);
+    padding: 3px 10px;
+    border-radius: 10px;
+    font-weight: 500;
+  }
+
+  /* ── 图表容器 ── */
+  .chart-wrap { width: 100%; height: 320px; }
+  .chart-wrap-sm { width: 100%; height: 260px; }
+
+  /* ── 进度/成熟度 ── */
+  .maturity-bar-wrap { margin-bottom: 16px; }
+  .maturity-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; }
+  .maturity-bar { height: 8px; background: #ECEFF1; border-radius: 4px; overflow: hidden; }
+  .maturity-fill { height: 100%; border-radius: 4px; background: var(--teal); transition: width 1s ease; }
+
+  /* ── 表格 ── */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table th {
+    background: var(--teal);
+    color: white;
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+  }
+  .data-table td { padding: 9px 14px; border-bottom: 1px solid var(--border); }
+  .data-table tr:hover td { background: var(--teal-pale); }
+  .data-table tr:last-child td { border-bottom: none; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge-high   { background: #FFEBEE; color: #C62828; }
+  .badge-mid    { background: #FFF8E1; color: #F57F17; }
+  .badge-low    { background: #E8F5E9; color: #2E7D32; }
+  .badge-teal   { background: var(--teal-pale); color: var(--teal-dark); }
+
+  /* ── 推荐路线图 ── */
+  .roadmap-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  @media(max-width:720px){ .roadmap-grid { grid-template-columns: 1fr; } }
+  .roadmap-phase {
+    background: white;
+    border-radius: 12px;
+    padding: 22px;
+    box-shadow: var(--shadow);
+  }
+  .roadmap-phase .phase-tag {
+    display: inline-block;
+    font-size: 11px; font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 10px;
+    margin-bottom: 12px;
+  }
+  .roadmap-phase h4 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+  .roadmap-phase p  { font-size: 12px; color: var(--text-light); margin-bottom: 12px; }
+  .roadmap-phase ul { padding-left: 18px; }
+  .roadmap-phase ul li { font-size: 13px; margin-bottom: 6px; }
+
+  .phase-1-tag { background: #E3F2FD; color: #1565C0; }
+  .phase-2-tag { background: var(--teal-pale); color: var(--teal-dark); }
+  .phase-3-tag { background: #F3E5F5; color: #6A1B9A; }
+
+  /* ── 页脚 ── */
+  footer {
+    text-align: center;
+    padding: 32px 20px;
+    color: var(--text-light);
+    font-size: 12px;
+  }
+  footer strong { color: var(--teal); }
+</style>
+</head>
+<body>
+
+<!-- 顶部横幅 -->
+<div class="hero">
+  <div class="hero-inner">
+    <div class="hero-tag">📊 ANALYTICS REPORT SYSTEM</div>
+    <h1>数据分析报告体系设计方案</h1>
+    <p>从"数据汇报"升级为"决策支持"——建立分层、标准化、可驱动业务的完整报告体系</p>
+    <div class="hero-meta">
+      <span>📅 2026-04-20</span>
+      <span>🏗️ 4大模块 · 12种报告类型 · 全周期覆盖</span>
+      <span>🎯 聚焦可操作业务洞察</span>
+    </div>
+  </div>
+</div>
+
+<!-- 导航 -->
+<div class="nav-tabs">
+  <div class="nav-inner">
+    <div class="nav-tab active" onclick="switchTab('overview')">📐 体系总览</div>
+    <div class="nav-tab" onclick="switchTab('types')">📋 报告类型</div>
+    <div class="nav-tab" onclick="switchTab('template')">🧱 报告模板</div>
+    <div class="nav-tab" onclick="switchTab('kpi')">🎯 KPI指标体系</div>
+    <div class="nav-tab" onclick="switchTab('quality')">✅ 质量保障</div>
+    <div class="nav-tab" onclick="switchTab('workflow')">🔄 生产流程</div>
+    <div class="nav-tab" onclick="switchTab('roadmap')">🚀 落地路线图</div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- ════════════════════════════ 1. 体系总览 ════════════════════════════ -->
+  <div id="section-overview" class="section active">
+    <div class="section-header">
+      <h2>体系总览：报告分层架构</h2>
+      <p>好的报告体系需要分层设计——不同层级服务不同受众，回答不同问题。</p>
+    </div>
+
+    <!-- 核心问题诊断 -->
+    <div class="card">
+      <div class="card-title"><div class="icon">🔍</div>当前报告体系的典型问题</div>
+      <div class="card-sub">在设计改进方案之前，先明确"难以支持业务决策"背后的根因</div>
+      <table class="data-table">
+        <thead><tr><th>问题类型</th><th>具体表现</th><th>根因分析</th><th>严重程度</th></tr></thead>
+        <tbody>
+          <tr><td>缺乏业务视角</td><td>只报告数字变化，不解释业务含义</td><td>分析师缺乏业务上下文，数据与决策脱节</td><td><span class="badge badge-high">高</span></td></tr>
+          <tr><td>结论模糊</td><td>报告以"数据显示…"结尾，无明确建议</td><td>分析目标不清，怕承担决策责任</td><td><span class="badge badge-high">高</span></td></tr>
+          <tr><td>指标不成体系</td><td>各部门自定义指标，口径不统一</td><td>缺乏统一的KPI字典和计算规范</td><td><span class="badge badge-high">高</span></td></tr>
+          <tr><td>时效性差</td><td>数据滞后，报告发出时已错过决策窗口</td><td>数据管道和报告生产流程未自动化</td><td><span class="badge badge-mid">中</span></td></tr>
+          <tr><td>受众定位模糊</td><td>高管和执行层看同一份报告</td><td>缺乏面向不同受众的报告分层</td><td><span class="badge badge-mid">中</span></td></tr>
+          <tr><td>缺乏统计严谨性</td><td>相关性被误解为因果，样本量不说明</td><td>分析团队统计素养参差不齐</td><td><span class="badge badge-mid">中</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 四层架构 -->
+    <div class="section-header" style="margin-top:32px;">
+      <h2>四层报告架构</h2>
+      <p>战略→战术→运营→专项，每层清晰定义受众、周期和决策目标</p>
+    </div>
+    <div class="tier-grid">
+      <div class="tier-card tier-strategic">
+        <div class="tier-label">战略层 · 月/季报</div>
+        <h3>🏛️ 战略洞察报告</h3>
+        <div class="tier-meta">受众：CEO / 董事会 / VP · 时效：月度/季度</div>
+        <ul>
+          <li>北极星指标趋势</li>
+          <li>市场格局与竞争对标</li>
+          <li>重大业务机会或风险</li>
+          <li>跨部门综合分析</li>
+          <li>战略 KPI vs 目标差距</li>
+        </ul>
+      </div>
+      <div class="tier-card tier-tactical">
+        <div class="tier-label">战术层 · 周报</div>
+        <h3>📈 业务运作报告</h3>
+        <div class="tier-meta">受众：业务总监 / 产品经理 · 时效：周度</div>
+        <ul>
+          <li>核心业务指标周环比</li>
+          <li>A/B 测试进展与结论</li>
+          <li>用户漏斗与转化诊断</li>
+          <li>营销活动效果归因</li>
+          <li>预算执行与 ROI 追踪</li>
+        </ul>
+      </div>
+      <div class="tier-card tier-operational">
+        <div class="tier-label">运营层 · 日报/实时</div>
+        <h3>⚙️ 运营监控报告</h3>
+        <div class="tier-meta">受众：运营团队 / 数据负责人 · 时效：日/实时</div>
+        <ul>
+          <li>关键指标异常检测</li>
+          <li>日活/留存/收入日报</li>
+          <li>渠道流量监控</li>
+          <li>系统性能与数据质量</li>
+          <li>SLA 合规追踪</li>
+        </ul>
+      </div>
+      <div class="tier-card tier-adhoc">
+        <div class="tier-label">专项层 · 按需</div>
+        <h3>🔬 深度专项报告</h3>
+        <div class="tier-meta">受众：决策者 + 执行团队 · 时效：按需</div>
+        <ul>
+          <li>用户分群与 CLV 分析</li>
+          <li>因果推断 / 政策评估</li>
+          <li>预测模型与情景模拟</li>
+          <li>流失归因 / 增长诊断</li>
+          <li>市场进入可行性分析</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 报告覆盖雷达图 -->
+    <div class="card" style="margin-top:28px;">
+      <div class="card-title"><div class="icon">📡</div>报告体系覆盖能力雷达</div>
+      <div class="card-sub">对比"改进前"与"改进后"体系在各维度的能力水平（1-10分）</div>
+      <div class="chart-wrap" id="radarChart"></div>
+    </div>
+
+    <!-- 成熟度进度条 -->
+    <div class="card">
+      <div class="card-title"><div class="icon">📊</div>报告成熟度模型</div>
+      <div class="card-sub">从"描述性"到"规范性"——四阶段演进目标</div>
+      <div class="maturity-bar-wrap"><div class="maturity-label"><span>🔵 描述性分析（发生了什么）</span><span>阶段 1</span></div><div class="maturity-bar"><div class="maturity-fill" style="width:85%;background:#1976D2"></div></div></div>
+      <div class="maturity-bar-wrap"><div class="maturity-label"><span>🟢 诊断性分析（为什么发生）</span><span>阶段 2 — 目标重点</span></div><div class="maturity-bar"><div class="maturity-fill" style="width:60%;background:var(--teal)"></div></div></div>
+      <div class="maturity-bar-wrap"><div class="maturity-label"><span>🟡 预测性分析（未来会怎样）</span><span>阶段 3</span></div><div class="maturity-bar"><div class="maturity-fill" style="width:35%;background:var(--gold)"></div></div></div>
+      <div class="maturity-bar-wrap"><div class="maturity-label"><span>🟠 规范性分析（应该怎么做）</span><span>阶段 4 — 终极目标</span></div><div class="maturity-bar"><div class="maturity-fill" style="width:15%;background:var(--orange)"></div></div></div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════ 2. 报告类型 ════════════════════════════ -->
+  <div id="section-types" class="section">
+    <div class="section-header">
+      <h2>12 种核心报告类型</h2>
+      <p>按业务场景精准匹配报告类型，确保每种报告有明确目的和交付物</p>
+    </div>
+
+    <div class="type-matrix">
+      <div class="type-card" style="border-left-color:#7B1FA2">
+        <div class="tc-header"><span class="tc-icon">🏆</span><span class="tc-name">高管月报</span><span class="tc-badge">战略层</span></div>
+        <p>面向高层的决策支持摘要，聚焦北极星指标与战略进展</p>
+        <div class="tc-tags"><span class="tc-tag">月度</span><span class="tc-tag">1-2页</span><span class="tc-tag">可视化优先</span></div>
+      </div>
+      <div class="type-card" style="border-left-color:#1976D2">
+        <div class="tc-header"><span class="tc-icon">📈</span><span class="tc-name">业务周报</span><span class="tc-badge">战术层</span></div>
+        <p>核心业务指标周变化分析，附原因归因与行动建议</p>
+        <div class="tc-tags"><span class="tc-tag">周度</span><span class="tc-tag">自动化</span><span class="tc-tag">异常告警</span></div>
+      </div>
+      <div class="type-card" style="border-left-color:var(--teal)">
+        <div class="tc-header"><span class="tc-icon">⚡</span><span class="tc-name">运营日报</span><span class="tc-badge">运营层</span></div>
+        <p>关键运营指标实时/日度监控，快速识别异常波动</p>
+        <div class="tc-tags"><span class="tc-tag">日度</span><span class="tc-tag">告警驱动</span><span class="tc-tag">简洁</span></div>
+      </div>
+      <div class="type-card" style="border-left-color:var(--orange)">
+        <div class="tc-header"><span class="tc-icon">🧑‍🤝‍🧑</span><span class="tc-name">用户分析报告</span><span class="tc-badge">专项层</span></div>
+        <p>RFM细分、生命周期价值、流失预测与用户健康度评估</p>
+        <div class="tc-tags"><span class="tc-tag">月度</span><span class="tc-tag">CLV</span><span class="tc-tag">RFM</span><span class="tc-tag">分群</span></div>
+      </div>
+      <div class="type-card" style="border-left-color:#F9A825">
+        <div class="tc-header"><span class="tc-icon">🧪</span><span class="tc-name">A/B测试报告</span><span class="tc-badge">战术层</span></div>
+        <p>实验设计、统计显著性验证、效应量与业务建议</p>
+        <div class="tc-tags"><span class="tc-tag">按需</span><span class="tc-tag">p值</span><span class="tc-tag">置信区间</span></div>
+      </div>
+      <div class="type-card" style="border-left-color:#00838F">
+        <div class="tc-header"><span class="tc-icon">📣</span><span class="tc-name">营销归因报告</span><span class="tc-badge">战术层</span></div>
+        <p>多触点归因模型，评估各渠道ROI与增量贡献</p>
+        <div class="tc-tags"><span class="tc-tag">双周</span><span class="tc-tag">归因</span><span class="tc-tag">ROI</span></div>
+      </div>
+      <div class="type-card" style="border-left-color:#C62828">
+        <div class="tc-header"><span class="tc-icon">💸</span><span class="tc-name">财务数据报告</span><span class="tc-badge">战略层</span></div>
+        <p>收入、成本、利润率趋势分析与预算执行追踪</p>
+        <div class="tc-tags"><span class="tc-tag">月度</span><span class="tc-tag">预算对比</span><span class="tc-tag">预测</span></div>
+      </div>
+      <div class="type-card" style="border-left-color:#2E7D32">
+        <div class="tc-header"><span class="tc-icon">🔮</span><span class="tc-name">预测分析报告</span><span class="tc-badge">专项层</span></div>
+        <p>销量/用户/需求预测，含置信区间与情景模拟</p>
+        <div class="tc-tags"><span class="tc-tag">季度</span><span class="tc-tag">ML模型</span><span class="tc-tag">情景</span></div>
+      </div>
+      <div class="type-card" style="border-left-color:#4527A0">
+        <div class="tc-header"><span class="tc-icon">🏭</span><span class="tc-name">产品漏斗报告</span><span class="tc-badge">战术层</span></div>
+        <p>用户全链路转化漏斗诊断，定位流失节点与优化机会</p>
+        <div class="tc-tags"><span class="tc-tag">周度</span><span class="tc-tag">漏斗</span><span class="tc-tag">留存</span></div>
+      </div>
+      <div class="type-card" style="border-left-color:#E65100">
+        <div class="tc-header"><span class="tc-icon">🌍</span><span class="tc-name">竞品对标报告</span><span class="tc-badge">战略层</span></div>
+        <p>市场份额、竞品功能、价格策略对比与机会识别</p>
+        <div class="tc-tags"><span class="tc-tag">季度</span><span class="tc-tag">对标</span><span class="tc-tag">定性+定量</span></div>
+      </div>
+      <div class="type-card" style="border-left-color:#0277BD">
+        <div class="tc-header"><span class="tc-icon">⚙️</span><span class="tc-name">运营效率报告</span><span class="tc-badge">运营层</span></div>
+        <p>流程效率、人效、资源利用率与成本优化分析</p>
+        <div class="tc-tags"><span class="tc-tag">月度</span><span class="tc-tag">效率</span><span class="tc-tag">成本</span></div>
+      </div>
+      <div class="type-card" style="border-left-color:#558B2F">
+        <div class="tc-header"><span class="tc-icon">🔬</span><span class="tc-name">因果推断报告</span><span class="tc-badge">专项层</span></div>
+        <p>政策/干预效果评估，ITS/DID等准实验方法支持</p>
+        <div class="tc-tags"><span class="tc-tag">按需</span><span class="tc-tag">因果</span><span class="tc-tag">DID/ITS</span></div>
+      </div>
+    </div>
+
+    <!-- 报告选择矩阵 -->
+    <div class="card" style="margin-top:28px;">
+      <div class="card-title"><div class="icon">🗺️</div>报告类型选择矩阵</div>
+      <div class="card-sub">根据"决策紧迫性"与"分析深度需求"快速匹配报告类型</div>
+      <div class="chart-wrap" id="matrixChart"></div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════ 3. 报告模板 ════════════════════════════ -->
+  <div id="section-template" class="section">
+    <div class="section-header">
+      <h2>标准化报告模板</h2>
+      <p>统一结构规范，让每份报告都能高效传递洞察、驱动行动</p>
+    </div>
+
+    <div class="template-wrapper">
+      <!-- 高管月报模板 -->
+      <div class="template-box">
+        <div class="template-header" style="background:#EDE7F6;color:#6A1B9A">
+          🏛️ 高管月报 · 标准结构
+        </div>
+        <div class="template-body">
+          <div class="tpl-step">
+            <div class="tpl-num">1</div>
+            <div class="tpl-content">
+              <h4>执行摘要（≤1/2页）</h4>
+              <p>3条核心发现 + 建议行动 + 本月核心数字</p>
+            </div>
+          </div>
+          <div class="tpl-step">
+            <div class="tpl-num">2</div>
+            <div class="tpl-content">
+              <h4>北极星指标状态</h4>
+              <ul><li>当前值 vs 目标值 vs 同期</li><li>趋势图 + 归因说明</li><li>健康度评级（🟢🟡🔴）</li></ul>
+            </div>
+          </div>
+          <div class="tpl-step">
+            <div class="tpl-num">3</div>
+            <div class="tpl-content">
+              <h4>重点业务进展</h4>
+              <ul><li>各业务线核心指标摘要</li><li>重大事件影响分析</li></ul>
+            </div>
+          </div>
+          <div class="tpl-step">
+            <div class="tpl-num">4</div>
+            <div class="tpl-content">
+              <h4>风险与机会</h4>
+              <p>识别2-3个需要高层关注的信号</p>
+            </div>
+          </div>
+          <div class="tpl-step">
+            <div class="tpl-num" style="background:var(--orange)">5</div>
+            <div class="tpl-content">
+              <h4>下月行动计划</h4>
+              <p>责任人 + 截止日期 + 预期结果</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 业务周报模板 -->
+      <div class="template-box">
+        <div class="template-header" style="background:#E3F2FD;color:#1565C0">
+          📈 业务周报 · 标准结构
+        </div>
+        <div class="template-body">
+          <div class="tpl-step">
+            <div class="tpl-num" style="background:#1976D2">1</div>
+            <div class="tpl-content">
+              <h4>一句话周结论</h4>
+              <p>本周最重要的一个发现，附量化数据佐证</p>
+            </div>
+          </div>
+          <div class="tpl-step">
+            <div class="tpl-num" style="background:#1976D2">2</div>
+            <div class="tpl-content">
+              <h4>核心指标看板</h4>
+              <ul><li>5-8个核心指标周环比 / 月环比</li><li>异常指标重点标注</li><li>数据置信度说明</li></ul>
+            </div>
+          </div>
+          <div class="tpl-step">
+            <div class="tpl-num" style="background:#1976D2">3</div>
+            <div class="tpl-content">
+              <h4>异常归因分析</h4>
+              <ul><li>明确列出异常指标</li><li>假设驱动的根因分析</li><li>排除噪音vs真实信号</li></ul>
+            </div>
+          </div>
+          <div class="tpl-step">
+            <div class="tpl-num" style="background:#1976D2">4</div>
+            <div class="tpl-content">
+              <h4>实验与测试进展</h4>
+              <p>在跑实验状态 + 已完成实验结论</p>
+            </div>
+          </div>
+          <div class="tpl-step">
+            <div class="tpl-num" style="background:var(--orange)">5</div>
+            <div class="tpl-content">
+              <h4>下周关注重点</h4>
+              <p>预期关键事件 + 需要的决策支持</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 深度专项报告模板 -->
+      <div class="template-box">
+        <div class="template-header" style="background:var(--teal-pale);color:var(--teal-dark)">
+          🔬 深度专项报告 · 标准结构
+        </div>
+        <div class="template-body">
+          <div class="tpl-step">
+            <div class="tpl-num">1</div>
+            <div class="tpl-content">
+              <h4>问题定义</h4>
+              <p>我们在回答什么业务问题？决策背景是什么？</p>
+            </div>
+          </div>
+          <div class="tpl-step">
+            <div class="tpl-num">2</div>
+            <div class="tpl-content">
+              <h4>数据基础</h4>
+              <ul><li>数据来源 + 质量评估</li><li>样本量 + 时间范围</li><li>关键假设说明</li></ul>
+            </div>
+          </div>
+          <div class="tpl-step">
+            <div class="tpl-num">3</div>
+            <div class="tpl-content">
+              <h4>分析方法论</h4>
+              <ul><li>选择的统计/建模方法及理由</li><li>假设检验设计</li><li>置信度说明</li></ul>
+            </div>
+          </div>
+          <div class="tpl-step">
+            <div class="tpl-num">4</div>
+            <div class="tpl-content">
+              <h4>核心发现</h4>
+              <p>主要发现 + 支撑证据 + 统计显著性</p>
+            </div>
+          </div>
+          <div class="tpl-step">
+            <div class="tpl-num" style="background:var(--orange)">5</div>
+            <div class="tpl-content">
+              <h4>可操作建议 + 量化影响预测</h4>
+              <p>具体行动 + 预期业务影响 + 实施建议</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- A/B测试报告模板 -->
+      <div class="template-box">
+        <div class="template-header" style="background:#FFF8E1;color:#F57F17">
+          🧪 A/B测试报告 · 标准结构
+        </div>
+        <div class="template-body">
+          <div class="tpl-step">
+            <div class="tpl-num" style="background:#F9A825;color:#000">1</div>
+            <div class="tpl-content">
+              <h4>实验设计摘要</h4>
+              <ul><li>假设 + 主要指标 + 次要指标</li><li>样本量计算（功效分析）</li><li>实验时长与分流方式</li></ul>
+            </div>
+          </div>
+          <div class="tpl-step">
+            <div class="tpl-num" style="background:#F9A825;color:#000">2</div>
+            <div class="tpl-content">
+              <h4>数据质量检查</h4>
+              <ul><li>SRM检测（样本比率偏差）</li><li>AA测试结果</li><li>新奇效应处理</li></ul>
+            </div>
+          </div>
+          <div class="tpl-step">
+            <div class="tpl-num" style="background:#F9A825;color:#000">3</div>
+            <div class="tpl-content">
+              <h4>统计结果</h4>
+              <p>p值 + 置信区间 + 效应量（绝对/相对提升）</p>
+            </div>
+          </div>
+          <div class="tpl-step">
+            <div class="tpl-num" style="background:#F9A825;color:#000">4</div>
+            <div class="tpl-content">
+              <h4>分群分析</h4>
+              <p>不同用户群的异质性效应是否一致</p>
+            </div>
+          </div>
+          <div class="tpl-step">
+            <div class="tpl-num" style="background:var(--orange)">5</div>
+            <div class="tpl-content">
+              <h4>推全/终止决策建议</h4>
+              <p>业务影响量化 + 风险评估 + 推荐行动</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 黄金写作法则 -->
+    <div class="card" style="margin-top:28px;">
+      <div class="card-title"><div class="icon">✍️</div>报告写作黄金法则</div>
+      <div class="card-sub">让报告从"汇报数据"变成"驱动决策"的关键写法</div>
+      <table class="data-table">
+        <thead><tr><th>维度</th><th>❌ 不好的写法</th><th>✅ 推荐写法</th></tr></thead>
+        <tbody>
+          <tr><td>结论呈现</td><td>本月DAU为120万</td><td>本月DAU达120万，环比+8.3%，超预期3%，主因为新版本推送功能带来留存提升</td></tr>
+          <tr><td>问题描述</td><td>转化率有所下降</td><td>注册→首单转化率本周跌至12.4%（历史均值18%），已持续3天，异常可能与支付页改版有关</td></tr>
+          <tr><td>建议表达</td><td>建议加强运营</td><td>建议在T+3天向未下单用户发送定向优惠券（面值20元），预计可恢复转化率至16%+，影响额外GMV约45万元/周</td></tr>
+          <tr><td>不确定性</td><td>（不说明）</td><td>以上结论基于过去30天数据，置信度95%；样本量12,843，统计功效>80%</td></tr>
+          <tr><td>因果表述</td><td>上线了X功能，留存提升了</td><td>A/B实验（n=5,000，p<0.01）显示X功能使次日留存提升4.2%（95% CI: 2.8%-5.6%）</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════ 4. KPI指标体系 ════════════════════════════ -->
+  <div id="section-kpi" class="section">
+    <div class="section-header">
+      <h2>KPI 指标体系设计</h2>
+      <p>建立统一的指标字典，从北极星指标向下分解，确保指标口径一致、层级清晰</p>
+    </div>
+
+    <!-- 指标分层原则 -->
+    <div class="card">
+      <div class="card-title"><div class="icon">🌟</div>北极星指标 → 一级 → 二级 分解原则</div>
+      <div class="chart-wrap" id="kpiTreeChart"></div>
+    </div>
+
+    <!-- 各业务域指标 -->
+    <div class="kpi-domain">
+      <div class="kpi-domain-header">
+        <div class="kpi-domain-icon" style="background:#E3F2FD;">📊</div>
+        <div>
+          <h3>增长域指标</h3>
+          <div class="kpi-sub">衡量用户规模、获取效率与增长质量</div>
+        </div>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi-item"><div class="kpi-name">MAU / DAU</div><div class="kpi-desc">月/日活跃用户数，核心规模指标</div><span class="kpi-level kpi-l1">北极星</span></div>
+        <div class="kpi-item"><div class="kpi-name">DAU/MAU 比值</div><div class="kpi-desc">用户粘性，衡量产品日常使用频率</div><span class="kpi-level kpi-l2">一级</span></div>
+        <div class="kpi-item"><div class="kpi-name">新用户获取成本 CAC</div><div class="kpi-desc">获取单个新用户的平均营销成本</div><span class="kpi-level kpi-l2">一级</span></div>
+        <div class="kpi-item"><div class="kpi-name">自然 vs 付费新增比</div><div class="kpi-desc">衡量获客渠道结构与可持续性</div><span class="kpi-level kpi-l3">二级</span></div>
+        <div class="kpi-item"><div class="kpi-name">D1 / D7 / D30 留存</div><div class="kpi-desc">新用户在关键时间节点的留存率</div><span class="kpi-level kpi-l2">一级</span></div>
+        <div class="kpi-item"><div class="kpi-name">病毒系数 K</div><div class="kpi-desc">每位用户平均带来的新用户数</div><span class="kpi-level kpi-l3">二级</span></div>
+      </div>
+    </div>
+
+    <div class="kpi-domain">
+      <div class="kpi-domain-header">
+        <div class="kpi-domain-icon" style="background:#E8F5E9;">💰</div>
+        <div>
+          <h3>营收域指标</h3>
+          <div class="kpi-sub">衡量变现能力、用户价值与收入健康度</div>
+        </div>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi-item"><div class="kpi-name">GMV / 月收入</div><div class="kpi-desc">总交易额或月收入，核心营收指标</div><span class="kpi-level kpi-l1">北极星</span></div>
+        <div class="kpi-item"><div class="kpi-name">ARPU / ARPPU</div><div class="kpi-desc">每用户/每付费用户平均收入</div><span class="kpi-level kpi-l2">一级</span></div>
+        <div class="kpi-item"><div class="kpi-name">LTV（生命周期价值）</div><div class="kpi-desc">用户在整个生命周期的预期贡献收入</div><span class="kpi-level kpi-l2">一级</span></div>
+        <div class="kpi-item"><div class="kpi-name">LTV / CAC 比值</div><div class="kpi-desc">衡量获客投入的长期回报，>3 为健康</div><span class="kpi-level kpi-l1">北极星</span></div>
+        <div class="kpi-item"><div class="kpi-name">付费转化率</div><div class="kpi-desc">活跃用户中转化为付费用户的比例</div><span class="kpi-level kpi-l2">一级</span></div>
+        <div class="kpi-item"><div class="kpi-name">复购率 / 订阅续费率</div><div class="kpi-desc">用户重复购买的频率，衡量忠诚度</div><span class="kpi-level kpi-l3">二级</span></div>
+      </div>
+    </div>
+
+    <div class="kpi-domain">
+      <div class="kpi-domain-header">
+        <div class="kpi-domain-icon" style="background:#FFF3E0;">🎯</div>
+        <div>
+          <h3>产品体验域指标</h3>
+          <div class="kpi-sub">衡量用户满意度、产品使用深度与体验质量</div>
+        </div>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi-item"><div class="kpi-name">NPS 净推荐值</div><div class="kpi-desc">用户口碑与满意度的综合衡量</div><span class="kpi-level kpi-l2">一级</span></div>
+        <div class="kpi-item"><div class="kpi-name">核心功能使用率</div><div class="kpi-desc">用户使用核心功能的比例与频次</div><span class="kpi-level kpi-l3">二级</span></div>
+        <div class="kpi-item"><div class="kpi-name">用户流失率（Churn）</div><div class="kpi-desc">一定周期内停止使用的用户比例</div><span class="kpi-level kpi-l2">一级</span></div>
+        <div class="kpi-item"><div class="kpi-name">关键漏斗转化率</div><div class="kpi-desc">各关键步骤的逐级转化率</div><span class="kpi-level kpi-l2">一级</span></div>
+        <div class="kpi-item"><div class="kpi-name">会话时长 / 深度</div><div class="kpi-desc">用户每次使用的时长和互动深度</div><span class="kpi-level kpi-l3">二级</span></div>
+        <div class="kpi-item"><div class="kpi-name">首次价值实现时间</div><div class="kpi-desc">新用户从注册到首次获得价值的时间</div><span class="kpi-level kpi-l3">二级</span></div>
+      </div>
+    </div>
+
+    <!-- 指标健康监控 -->
+    <div class="card">
+      <div class="card-title"><div class="icon">🚦</div>指标健康度监控体系</div>
+      <div class="card-sub">为每个核心指标设定阈值，实现自动预警</div>
+      <table class="data-table">
+        <thead><tr><th>指标</th><th>基准值</th><th>🟢 健康阈值</th><th>🟡 预警阈值</th><th>🔴 告警阈值</th><th>监控频率</th></tr></thead>
+        <tbody>
+          <tr><td>DAU 环比变化</td><td>—</td><td>&gt; -3%</td><td>-3% ~ -8%</td><td>&lt; -8%</td><td>日</td></tr>
+          <tr><td>付费转化率</td><td>行业均值</td><td>&gt; 行业均值</td><td>均值的80%-100%</td><td>&lt; 均值的80%</td><td>周</td></tr>
+          <tr><td>D7留存率</td><td>前30天均值</td><td>&gt; 均值-1σ</td><td>均值-1σ ~ -2σ</td><td>&lt; 均值-2σ</td><td>日</td></tr>
+          <tr><td>LTV/CAC</td><td>3.0x</td><td>&gt; 3.0x</td><td>2.0x ~ 3.0x</td><td>&lt; 2.0x</td><td>月</td></tr>
+          <tr><td>关键漏斗转化</td><td>历史均值</td><td>&gt; 均值-5%</td><td>-5% ~ -15%</td><td>&lt; -15%</td><td>日</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════ 5. 质量保障 ════════════════════════════ -->
+  <div id="section-quality" class="section">
+    <div class="section-header">
+      <h2>报告质量保障体系</h2>
+      <p>从数据质量到统计严谨性，确保每份报告的可信度与可复现性</p>
+    </div>
+
+    <div class="quality-grid">
+      <div class="quality-card">
+        <h4>📊 数据质量核查</h4>
+        <div class="checklist-item"><div class="check-icon">✓</div><div>核查数据完整性（缺失率 &lt;5%）</div></div>
+        <div class="checklist-item"><div class="check-icon">✓</div><div>验证数据来源可靠性，记录数据血缘</div></div>
+        <div class="checklist-item warn"><div class="check-icon">!</div><div>异常值检测：Z-score &gt;3σ 需人工确认</div></div>
+        <div class="checklist-item"><div class="check-icon">✓</div><div>口径一致性检查（与上期/其他报告对齐）</div></div>
+        <div class="checklist-item"><div class="check-icon">✓</div><div>时区、货币单位标注清晰</div></div>
+        <div class="checklist-item warn"><div class="check-icon">!</div><div>关键指标需有数据接收时间戳记录</div></div>
+      </div>
+      <div class="quality-card">
+        <h4>📐 统计严谨性</h4>
+        <div class="checklist-item"><div class="check-icon">✓</div><div>明确报告置信水平（通常95%）</div></div>
+        <div class="checklist-item"><div class="check-icon">✓</div><div>A/B测试前进行样本量/功效分析</div></div>
+        <div class="checklist-item warn"><div class="check-icon">!</div><div>避免多重比较问题（Bonferroni校正）</div></div>
+        <div class="checklist-item"><div class="check-icon">✓</div><div>区分统计显著性与实际业务显著性</div></div>
+        <div class="checklist-item warn"><div class="check-icon">!</div><div>相关关系不代表因果，需明确说明</div></div>
+        <div class="checklist-item info"><div class="check-icon">i</div><div>报告效应量（不仅p值），如Cohen's d</div></div>
+      </div>
+      <div class="quality-card">
+        <h4>🎯 业务价值核查</h4>
+        <div class="checklist-item"><div class="check-icon">✓</div><div>每份报告明确回答一个核心业务问题</div></div>
+        <div class="checklist-item"><div class="check-icon">✓</div><div>结论段必须包含可操作的建议</div></div>
+        <div class="checklist-item warn"><div class="check-icon">!</div><div>建议需量化预期业务影响（金额/百分比）</div></div>
+        <div class="checklist-item"><div class="check-icon">✓</div><div>建议需指定责任人和时间节点</div></div>
+        <div class="checklist-item info"><div class="check-icon">i</div><div>标注分析局限性，避免过度解读</div></div>
+        <div class="checklist-item"><div class="check-icon">✓</div><div>高管摘要控制在半页以内，图表优先</div></div>
+      </div>
+      <div class="quality-card">
+        <h4>🔄 可复现性保障</h4>
+        <div class="checklist-item"><div class="check-icon">✓</div><div>分析代码版本化管理（Git）</div></div>
+        <div class="checklist-item"><div class="check-icon">✓</div><div>数据提取SQL固化并归档</div></div>
+        <div class="checklist-item"><div class="check-icon">✓</div><div>记录分析参数与假设条件</div></div>
+        <div class="checklist-item warn"><div class="check-icon">!</div><div>原始数据快照保留≥6个月</div></div>
+        <div class="checklist-item"><div class="check-icon">✓</div><div>报告版本号与修订记录</div></div>
+        <div class="checklist-item info"><div class="check-icon">i</div><div>定期（季度）对历史结论进行验证回顾</div></div>
+      </div>
+    </div>
+
+    <!-- 审核流程 -->
+    <div class="card" style="margin-top:28px;">
+      <div class="card-title"><div class="icon">🔍</div>报告发布审核标准（发布前自检清单）</div>
+      <div class="card-sub">每份对外发布的报告都需要通过以下核查</div>
+      <table class="data-table">
+        <thead><tr><th>#</th><th>检查项</th><th>检查方式</th><th>级别</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>核心数字已二次验证（源数据 vs 展示数字一致）</td><td>人工核验</td><td><span class="badge badge-high">必须</span></td></tr>
+          <tr><td>2</td><td>所有图表纵轴起点说明（避免视觉误导）</td><td>人工核验</td><td><span class="badge badge-high">必须</span></td></tr>
+          <tr><td>3</td><td>有明确结论（不以"数据显示"结尾）</td><td>写作规范审查</td><td><span class="badge badge-high">必须</span></td></tr>
+          <tr><td>4</td><td>样本量和数据时间范围已说明</td><td>模板自检</td><td><span class="badge badge-high">必须</span></td></tr>
+          <tr><td>5</td><td>建议具体可操作，非泛化表述</td><td>peer review</td><td><span class="badge badge-high">必须</span></td></tr>
+          <tr><td>6</td><td>统计推断附置信水平说明</td><td>统计规范审查</td><td><span class="badge badge-mid">推荐</span></td></tr>
+          <tr><td>7</td><td>复杂图表附阅读说明</td><td>易读性审查</td><td><span class="badge badge-low">可选</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════ 6. 生产流程 ════════════════════════════ -->
+  <div id="section-workflow" class="section">
+    <div class="section-header">
+      <h2>报告生产标准流程</h2>
+      <p>端到端自动化 + 人工审核节点，兼顾效率与质量</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><div class="icon">🔄</div>标准报告生产工作流</div>
+      <div class="card-sub">从数据源到决策者，明确每个环节的责任人和交付物</div>
+      <div class="workflow-timeline">
+        <div class="wf-step">
+          <div class="wf-dot">📥</div>
+          <div class="wf-content">
+            <h4>Step 1 · 数据采集与清洗</h4>
+            <p>自动化数据管道定时拉取，完成去重、填充、格式标准化</p>
+            <div class="wf-tags"><span class="wf-tag">自动化</span><span class="wf-tag">ETL</span><span class="wf-tag">数据仓库</span><span class="wf-tag">责任人：数据工程</span></div>
+          </div>
+        </div>
+        <div class="wf-step">
+          <div class="wf-dot">✅</div>
+          <div class="wf-content">
+            <h4>Step 2 · 数据质量验证</h4>
+            <p>自动化 DQ 检查（完整性/一致性/异常值），不通过则触发告警，人工介入</p>
+            <div class="wf-tags"><span class="wf-tag">自动化检查</span><span class="wf-tag">人工兜底</span><span class="wf-tag">责任人：数据分析师</span></div>
+          </div>
+        </div>
+        <div class="wf-step">
+          <div class="wf-dot">🔬</div>
+          <div class="wf-content">
+            <h4>Step 3 · 分析与洞察提取</h4>
+            <p>运行标准化分析脚本，人工进行异常归因、趋势解读与假设验证</p>
+            <div class="wf-tags"><span class="wf-tag">半自动化</span><span class="wf-tag">Python/SQL</span><span class="wf-tag">责任人：数据分析师</span></div>
+          </div>
+        </div>
+        <div class="wf-step">
+          <div class="wf-dot">✍️</div>
+          <div class="wf-content">
+            <h4>Step 4 · 报告撰写</h4>
+            <p>使用标准模板，填充洞察与建议；执行报告内容自检清单</p>
+            <div class="wf-tags"><span class="wf-tag">人工</span><span class="wf-tag">模板化</span><span class="wf-tag">自检清单</span></div>
+          </div>
+        </div>
+        <div class="wf-step">
+          <div class="wf-dot">👀</div>
+          <div class="wf-content">
+            <h4>Step 5 · Peer Review（同行审核）</h4>
+            <p>另一位分析师审核数据逻辑与结论合理性；确认核心数字</p>
+            <div class="wf-tags"><span class="wf-tag">人工</span><span class="wf-tag">必要节点</span><span class="wf-tag">责任人：高级分析师</span></div>
+          </div>
+        </div>
+        <div class="wf-step">
+          <div class="wf-dot">📤</div>
+          <div class="wf-content">
+            <h4>Step 6 · 定向发布</h4>
+            <p>按受众层级分发（高管/业务线/运营），附预读摘要；关键数字推送告警</p>
+            <div class="wf-tags"><span class="wf-tag">自动化分发</span><span class="wf-tag">受众定向</span><span class="wf-tag">责任人：分析Lead</span></div>
+          </div>
+        </div>
+        <div class="wf-step">
+          <div class="wf-dot">🔁</div>
+          <div class="wf-content">
+            <h4>Step 7 · 反馈闭环</h4>
+            <p>收集读者反馈（建议是否被采用、效果如何）；季度复盘报告体系有效性</p>
+            <div class="wf-tags"><span class="wf-tag">反馈收集</span><span class="wf-tag">季度复盘</span><span class="wf-tag">持续改进</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 报告频率与时效 -->
+    <div class="card">
+      <div class="card-title"><div class="icon">⏱️</div>报告发布时效标准</div>
+      <table class="data-table">
+        <thead><tr><th>报告类型</th><th>数据截止时间</th><th>发布时间</th><th>延迟容忍</th><th>自动化程度</th></tr></thead>
+        <tbody>
+          <tr><td>运营日报</td><td>T 日 23:59</td><td>T+1 日 09:00</td><td>≤2小时</td><td><span class="badge badge-teal">全自动</span></td></tr>
+          <tr><td>业务周报</td><td>周日 23:59</td><td>周一 10:00</td><td>≤半天</td><td><span class="badge badge-teal">半自动</span></td></tr>
+          <tr><td>高管月报</td><td>月末最后一天</td><td>次月3日内</td><td>≤1天</td><td><span class="badge badge-mid">人工为主</span></td></tr>
+          <tr><td>专项报告</td><td>需求确认后</td><td>需求后3-5工作日</td><td>视复杂度</td><td><span class="badge badge-mid">人工为主</span></td></tr>
+          <tr><td>A/B测试报告</td><td>实验结束后</td><td>实验结束后2工作日</td><td>≤1天</td><td><span class="badge badge-teal">半自动</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════ 7. 落地路线图 ════════════════════════════ -->
+  <div id="section-roadmap" class="section">
+    <div class="section-header">
+      <h2>落地推进路线图</h2>
+      <p>分三阶段推进，从规范建立到智能化，每阶段有明确的交付物和验收标准</p>
+    </div>
+
+    <div class="roadmap-grid">
+      <div class="roadmap-phase">
+        <span class="phase-tag phase-1-tag">第一阶段 · 0-30天</span>
+        <h4>🏗️ 基础规范建立</h4>
+        <p>解决口径混乱、无结论等"最痛"问题</p>
+        <ul>
+          <li>制定统一 KPI 字典（50个核心指标）</li>
+          <li>发布报告写作规范文档</li>
+          <li>建立4种核心报告标准模板</li>
+          <li>梳理现有报告，关闭冗余报告</li>
+          <li>建立发布前自检清单</li>
+        </ul>
+        <div style="margin-top:14px;padding:10px;background:#E3F2FD;border-radius:8px;font-size:12px;color:#1565C0">
+          ✓ 验收标准：每份报告有结论段，核心指标口径统一
+        </div>
+      </div>
+      <div class="roadmap-phase">
+        <span class="phase-tag phase-2-tag">第二阶段 · 30-90天</span>
+        <h4>⚙️ 流程自动化</h4>
+        <p>提高时效性，释放分析师时间做深度分析</p>
+        <ul>
+          <li>自动化日报/周报数据拉取脚本</li>
+          <li>异常检测告警系统上线</li>
+          <li>建立报告分发工作流</li>
+          <li>数据质量监控 Dashboard</li>
+          <li>建立报告反馈收集机制</li>
+        </ul>
+        <div style="margin-top:14px;padding:10px;background:var(--teal-pale);border-radius:8px;font-size:12px;color:var(--teal-dark)">
+          ✓ 验收标准：日报/周报生产时间减少60%以上
+        </div>
+      </div>
+      <div class="roadmap-phase">
+        <span class="phase-tag phase-3-tag">第三阶段 · 90天+</span>
+        <h4>🧠 深度洞察能力</h4>
+        <p>从描述性分析升级为诊断性+预测性分析</p>
+        <ul>
+          <li>用户流失预测模型上线</li>
+          <li>A/B测试平台标准化</li>
+          <li>营销归因模型建立</li>
+          <li>预测性分析报告定期产出</li>
+          <li>分析师统计能力培训体系</li>
+        </ul>
+        <div style="margin-top:14px;padding:10px;background:#F3E5F5;border-radius:8px;font-size:12px;color:#6A1B9A">
+          ✓ 验收标准：每季度至少1份因果推断报告，建议采纳率>60%
+        </div>
+      </div>
+    </div>
+
+    <!-- 投入产出预估 -->
+    <div class="card" style="margin-top:28px;">
+      <div class="card-title"><div class="icon">💎</div>预期业务影响</div>
+      <div class="card-sub">体系建立后预期带来的可量化改善</div>
+      <div class="chart-wrap-sm" id="impactChart"></div>
+    </div>
+
+    <!-- 优先级建议 -->
+    <div class="card">
+      <div class="card-title"><div class="icon">⚡</div>立即可做的3件事（本周内）</div>
+      <table class="data-table">
+        <thead><tr><th>事项</th><th>具体行动</th><th>预期效果</th><th>投入时间</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>① 召开报告对齐会</strong></td>
+            <td>与业务决策者逐一确认：每类报告要回答什么问题？谁做决策？需要什么数据？</td>
+            <td>明确分析需求，避免做无用报告</td>
+            <td>半天</td>
+          </tr>
+          <tr>
+            <td><strong>② 审计现有报告</strong></td>
+            <td>列出所有在产报告，标注：是否有结论？是否被读者使用？关闭无人看的报告</td>
+            <td>减少30%+无效工作量</td>
+            <td>1天</td>
+          </tr>
+          <tr>
+            <td><strong>③ 改造一份报告</strong></td>
+            <td>选最重要的一份报告，按新模板重写，测试反馈，形成示范样本</td>
+            <td>快速验证效果，形成内部标杆</td>
+            <td>2天</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<footer>
+  <strong>📊 数据分析报告体系设计方案</strong> · 分析报告员 · 2026-04-20<br>
+  将原始数据转化为驱动你下一个决策的洞察
+</footer>
+
+<script>
+// ── Tab 切换 ──
+function switchTab(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('section-' + id).classList.add('active');
+  event.target.classList.add('active');
+  setTimeout(() => initCharts(id), 100);
+}
+
+// ── 初始化图表 ──
+let inited = {};
+function initCharts(section) {
+  if (inited[section]) return;
+  inited[section] = true;
+
+  if (section === 'overview') initRadar();
+  if (section === 'types')    initMatrix();
+  if (section === 'kpi')      initKPITree();
+  if (section === 'roadmap')  initImpact();
+}
+
+// 雷达图
+function initRadar() {
+  const el = document.getElementById('radarChart');
+  if (!el) return;
+  const chart = echarts.init(el);
+  chart.setOption({
+    legend: { data: ['改进前', '改进后'], bottom: 10, textStyle: { fontSize: 13 } },
+    radar: {
+      indicator: [
+        { name: '决策支持度', max: 10 },
+        { name: '时效性', max: 10 },
+        { name: '统计严谨性', max: 10 },
+        { name: '指标体系完整性', max: 10 },
+        { name: '受众定向精度', max: 10 },
+        { name: '可操作建议质量', max: 10 },
+        { name: '自动化程度', max: 10 },
+        { name: '反馈闭环', max: 10 }
+      ],
+      center: ['50%', '50%'],
+      radius: '65%',
+      splitArea: { areaStyle: { color: ['rgba(0,137,123,0.03)', 'rgba(0,137,123,0.07)', 'rgba(0,137,123,0.03)', 'rgba(0,137,123,0.07)'] } }
+    },
+    series: [{
+      type: 'radar',
+      data: [
+        { value: [3,4,3,2,3,2,3,1], name: '改进前',
+          areaStyle: { opacity: 0.2, color: '#78909C' },
+          lineStyle: { color: '#78909C', width: 2 },
+          itemStyle: { color: '#78909C' } },
+        { value: [9,8,8,9,8,9,7,7], name: '改进后',
+          areaStyle: { opacity: 0.25, color: '#00897B' },
+          lineStyle: { color: '#00897B', width: 2.5 },
+          itemStyle: { color: '#00897B' } }
+      ]
+    }]
+  });
+  window.addEventListener('resize', () => chart.resize());
+}
+
+// 散点矩阵
+function initMatrix() {
+  const el = document.getElementById('matrixChart');
+  if (!el) return;
+  const chart = echarts.init(el);
+  const data = [
+    { name: '运营日报', x: 9, y: 2, size: 25, color: '#00897B' },
+    { name: '业务周报', x: 7, y: 5, size: 30, color: '#1976D2' },
+    { name: '高管月报', x: 5, y: 9, size: 35, color: '#7B1FA2' },
+    { name: 'A/B测试报告', x: 4, y: 7, size: 28, color: '#F9A825' },
+    { name: '深度专项报告', x: 2, y: 9, size: 38, color: '#FF7043' },
+    { name: '用户分析报告', x: 3, y: 8, size: 32, color: '#E65100' },
+    { name: '营销归因报告', x: 5, y: 7, size: 28, color: '#00838F' },
+    { name: '预测分析报告', x: 1, y: 8, size: 30, color: '#2E7D32' },
+  ];
+  chart.setOption({
+    xAxis: { name: '决策紧迫性 →', min: 0, max: 10, nameLocation: 'end', axisLabel: { formatter: v => ['','低','','','中','','','高','','','极高'][v] || '' } },
+    yAxis: { name: '↑ 分析深度需求', min: 0, max: 10, nameLocation: 'end', axisLabel: { formatter: v => ['','浅','','','中','','','深','','','极深'][v] || '' } },
+    grid: { top: 30, bottom: 60, left: 60, right: 40 },
+    tooltip: { formatter: p => `<b>${p.data[3]}</b>` },
+    series: [{
+      type: 'scatter',
+      symbolSize: d => d[2],
+      data: data.map(d => ({ value: [d.x, d.y, d.size, d.name], itemStyle: { color: d.color, opacity: 0.85 } })),
+      label: { show: true, formatter: p => p.data[3], position: 'right', fontSize: 11 }
+    }]
+  });
+  window.addEventListener('resize', () => chart.resize());
+}
+
+// KPI树图
+function initKPITree() {
+  const el = document.getElementById('kpiTreeChart');
+  if (!el) return;
+  const chart = echarts.init(el);
+  chart.setOption({
+    series: [{
+      type: 'tree',
+      data: [{
+        name: '🌟 北极星指标\n（用户价值 × 规模）',
+        itemStyle: { color: '#7B1FA2' },
+        children: [
+          { name: '📈 增长域', itemStyle: { color: '#1976D2' },
+            children: [
+              { name: 'MAU/DAU', itemStyle: { color: '#42A5F5' } },
+              { name: 'D7/D30留存', itemStyle: { color: '#42A5F5' } },
+              { name: 'CAC', itemStyle: { color: '#90CAF9' } }
+            ]
+          },
+          { name: '💰 营收域', itemStyle: { color: '#00897B' },
+            children: [
+              { name: 'GMV/收入', itemStyle: { color: '#4DB6AC' } },
+              { name: 'LTV/CAC', itemStyle: { color: '#4DB6AC' } },
+              { name: 'ARPU', itemStyle: { color: '#80CBC4' } }
+            ]
+          },
+          { name: '🎯 体验域', itemStyle: { color: '#FF7043' },
+            children: [
+              { name: 'NPS', itemStyle: { color: '#FF8A65' } },
+              { name: '漏斗转化率', itemStyle: { color: '#FF8A65' } },
+              { name: '流失率', itemStyle: { color: '#FFAB91' } }
+            ]
+          }
+        ]
+      }],
+      top: '5%', left: '7%', bottom: '5%', right: '20%',
+      symbol: 'circle', symbolSize: 10,
+      label: { position: 'left', fontSize: 12, color: '#333' },
+      leaves: { label: { position: 'right' } },
+      emphasis: { focus: 'descendant' },
+      expandAndCollapse: false,
+      animationDuration: 550
+    }]
+  });
+  window.addEventListener('resize', () => chart.resize());
+}
+
+// 影响力柱状图
+function initImpact() {
+  const el = document.getElementById('impactChart');
+  if (!el) return;
+  const chart = echarts.init(el);
+  chart.setOption({
+    legend: { data: ['改进前', '改进后（预期）'], bottom: 5 },
+    xAxis: {
+      type: 'category',
+      data: ['报告生产效率', '决策采纳率', '分析时效性', '数据质量达标率', '业务满意度（/10）'],
+      axisLabel: { fontSize: 12 }
+    },
+    yAxis: { type: 'value', axisLabel: { formatter: '{value}%' } },
+    grid: { top: 20, bottom: 60, left: 50, right: 20 },
+    series: [
+      { name: '改进前', type: 'bar', data: [100, 35, 60, 72, 55],
+        itemStyle: { color: '#B0BEC5', borderRadius: [4,4,0,0] } },
+      { name: '改进后（预期）', type: 'bar', data: [165, 65, 90, 92, 85],
+        itemStyle: { color: '#00897B', borderRadius: [4,4,0,0] } }
+    ],
+    tooltip: { trigger: 'axis' }
+  });
+  window.addEventListener('resize', () => chart.resize());
+}
+
+// 页面加载后初始化第一个tab的图表
+window.addEventListener('load', () => {
+  setTimeout(() => initCharts('overview'), 200);
+});
+</script>
+</body>
+</html>
